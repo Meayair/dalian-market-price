@@ -1,0 +1,11 @@
+# 发布日志（本地留痕，不进仓库）
+_publish_log.txt
+
+# 打包产物与全量快照（db 走 Release 附件，不进 git 历史）
+dist/
+*.db
+*.zip
+
+# Python
+__pycache__/
+*.pyc
