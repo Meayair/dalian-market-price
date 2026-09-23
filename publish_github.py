@@ -181,22 +181,23 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
     return exported, latest, rows, overall
 
 
-def upload_snapshot(token: str, overall: str, old_snapshot: str) -> None:
-    """上传全量 db 快照为 Release 附件（仅当快照日期变化时）。"""
-    if old_snapshot == f"dalian_market_price_{overall}.db":
-        log(f"[skip] 快照已是 {overall}")
-        return
+def upload_snapshot(token: str, overall: str) -> None:
+    """上传全量 db 快照为 Release 附件（以远端是否真的存在该附件为准）。"""
     tag = f"v{overall}"
     fname = f"dalian_market_price_{overall}.db"
     release = None
-    try:
+    try:  # 先看该 tag 的 Release 是否已存在
         with api(f"https://api.github.com/repos/{REPO}/releases/tags/{tag}",
                  token, retries=2) as r:
             release = json.load(r)
         if "id" not in release:
             release = None
-    except Exception:
+    except Exception:  # noqa: BLE001
         release = None
+    if release and any(a.get("name") == fname
+                       for a in release.get("assets", [])):
+        log(f"[skip] 快照 {fname} 已存在")
+        return
     if release is None:
         body = {"tag_name": tag, "target_commitish": "main",
                 "name": f"价格数据快照 {overall}",
@@ -211,22 +212,27 @@ def upload_snapshot(token: str, overall: str, old_snapshot: str) -> None:
             fail(f"创建 Release {tag} 失败: {e}")
         log(f"[ok] 已创建 Release {tag}")
     rid = release["id"]
-    for a in release.get("assets", []):
-        if a.get("name") == fname:
-            try:
-                api(f"https://api.github.com/repos/{REPO}/releases/assets/{a['id']}",
-                    token, "DELETE").read()
-                log(f"[ok] 删除旧快照附件 {fname}")
-            except Exception as e:
-                log(f"[warn] 删除旧附件失败（继续）: {e}")
     data = DB.read_bytes()
     up = f"https://uploads.github.com/repos/{REPO}/releases/{rid}/assets?name={fname}"
-    try:
-        api(up, token, "POST", data,
-            {"Content-Type": "application/octet-stream"}).read()
-        log(f"[ok] 已上传快照 {fname}（{len(data)/1e6:.1f} MB）")
-    except Exception as e:
-        fail(f"上传快照失败: {e}")
+    for attempt in range(3):  # 代理下大文件 POST 偶发 reset，重传前先清同名附件
+        for a in release.get("assets", []):
+            if a.get("name") == fname:
+                try:
+                    api(f"https://api.github.com/repos/{REPO}/releases/assets/"
+                        f"{a['id']}", token, "DELETE", retries=1).read()
+                except Exception:  # noqa: BLE001
+                    pass
+                release["assets"] = [x for x in release["assets"]
+                                     if x.get("name") != fname]
+        try:
+            api(up, token, "POST", data,
+                {"Content-Type": "application/octet-stream"}).read()
+            log(f"[ok] 已上传快照 {fname}（{len(data) / 1e6:.1f} MB）")
+            return
+        except Exception as e:  # noqa: BLE001
+            log(f"[warn] 快照上传第 {attempt + 1} 次失败: {e}")
+            time.sleep(5)
+    fail(f"上传快照失败（{fname}），下次运行自动补传")
 
 
 def main() -> int:
@@ -251,17 +257,6 @@ def main() -> int:
         fail("请先把 publish_github.py 顶部 REPO 常量（或环境变量 DALIAN_PRICE_REPO）"
              "改成 你的用户名/dalian-market-price")
 
-    # 从远端仓库读取上一版 version.json，判断快照是否需要重传附件
-    old_snapshot = ""
-    for u in (f"https://raw.githubusercontent.com/{REPO}/main/version.json",
-              f"https://cdn.jsdelivr.net/gh/{REPO}@main/version.json"):
-        try:
-            with urllib.request.urlopen(u, timeout=60) as r:
-                old_snapshot = json.load(r).get("snapshot", {}).get("db_file", "")
-            break
-        except Exception:  # noqa: BLE001
-            continue
-
     token = gh_token()
     if not token:
         fail("未取到 GitHub 凭据：先在本仓库执行一次 git push 完成浏览器授权")
@@ -276,7 +271,7 @@ def main() -> int:
         fail("提交到 GitHub 失败（本地已导出，下次运行自动补推）")
 
     # 2) Release 全量快照
-    upload_snapshot(token, overall, old_snapshot)
+    upload_snapshot(token, overall)
     log(f"[done] 发布完成（最新 {overall}）")
     return 0
 

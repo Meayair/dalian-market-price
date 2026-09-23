@@ -105,6 +105,32 @@ def collect() -> "dict[str, bytes]":
     return out
 
 
+def repo_empty(tok: str) -> bool:
+    try:
+        c = api(f"https://api.github.com/repos/{REPO}/commits?per_page=1", tok,
+                retries=2)
+        return not c
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def put_file(tok: str, path: str, content: bytes, message: str) -> None:
+    """用 Contents API 写单个文件（已存在时自动带上 sha）。"""
+    sha = None
+    try:
+        info = api(f"https://api.github.com/repos/{REPO}/contents/{path}", tok,
+                   retries=2)
+        sha = info.get("sha")
+    except Exception:  # noqa: BLE001  不存在则新建
+        sha = None
+    payload = {"message": message,
+               "content": base64.b64encode(content).decode("ascii")}
+    if sha:
+        payload["sha"] = sha
+    api(f"https://api.github.com/repos/{REPO}/contents/{path}", tok, "PUT",
+        payload)
+
+
 def remote_tree(tok: str) -> "dict[str, str]":
     """远端 branch 上所有文件的 path -> blob sha（空仓库返回 {}）。"""
     try:
@@ -146,16 +172,17 @@ def main() -> int:
     try:
         base = api(f"https://api.github.com/repos/{REPO}/git/ref/heads/{BRANCH}",
                    tok, retries=1)["object"]["sha"]
-    except Exception:  # noqa: BLE001  空仓库
-        base = None
+    except Exception:  # noqa: BLE001  可能是空仓库，也可能是网络抖动
+        if repo_empty(tok):
+            base = None  # 确实是空仓库 → 走初始化分支
+        else:
+            log("[fail] 无法获取远端 main 分支（网络问题），未提交")
+            return 1
 
     # 空仓库无法直接建 tree（409），先用 Contents API 推一个小文件把 main 分支建起来
     if not base:
         first = "README.md" if "README.md" in changes else sorted(changes)[0]
-        api(f"https://api.github.com/repos/{REPO}/contents/{first}", tok,
-            "PUT", {"message": "init: 初始化仓库",
-                    "content": base64.b64encode(changes.pop(first)
-                                                ).decode("ascii")})
+        put_file(tok, first, changes.pop(first), "init: 初始化仓库")
         log(f"[ok] 已初始化仓库（{first}）")
         base = api(f"https://api.github.com/repos/{REPO}/git/ref/heads/{BRANCH}",
                    tok)["object"]["sha"]
