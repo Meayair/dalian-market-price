@@ -171,7 +171,12 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
         .isoformat(timespec="seconds"),
         "latest": latest,
         "rows": rows,
-        "snapshot": {"db_file": f"dalian_market_price_{overall}.db"},
+        "snapshot": {
+            "db_file": f"dalian_market_price_{overall}.db",
+            # 直链写进版本文件：客户端无需访问 api.github.com 也能首装（大陆网络友好）
+            "url": f"https://github.com/{REPO}/releases/download/v{overall}"
+                   f"/dalian_market_price_{overall}.db",
+        },
         "dates": dates,
     }
     VERSION_FILE.write_text(
