@@ -187,16 +187,16 @@ def main() -> int:
         base = api(f"https://api.github.com/repos/{REPO}/git/ref/heads/{BRANCH}",
                    tok)["object"]["sha"]
 
-    # 分批提交：单批 payload 过大（3MB+）会被代理掐断
+    # 分批提交：单批 payload 过大（3MB+）会被代理掐断（批大小可用 PUSH_BATCH 覆盖）
     items = sorted(changes.items())
-    batch = 60
+    batch = int(os.environ.get("PUSH_BATCH") or 60)
     commits = 0
     for i in range(0, len(items), batch):
         part = items[i:i + batch]
         tree = [{"path": p, "mode": "100644", "type": "blob",
                  "content": c.decode("utf-8")} for p, c in part]
         created = api(f"https://api.github.com/repos/{REPO}/git/trees", tok,
-                      "POST", {"tree": tree, "base_tree": base})
+                      "POST", {"tree": tree, "base_tree": base}, retries=4)
         commit = api(f"https://api.github.com/repos/{REPO}/git/commits", tok,
                      "POST", {"message": f"data: {time.strftime('%Y-%m-%d %H:%M')}"
                                          f" （第 {i // batch + 1} 批，{len(part)} 个文件）",
@@ -206,6 +206,8 @@ def main() -> int:
         base = commit["sha"]
         commits += 1
         log(f"[ok] 第 {commits} 批已提交 {commit['sha'][:8]}（{len(part)} 个文件）")
+        if i + batch < len(items):  # 批间暂停：连续大 POST 易被代理掐断
+            time.sleep(6)
     log(f"[done] 共 {commits} 个提交完成")
     return 0
 

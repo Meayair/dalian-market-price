@@ -186,7 +186,7 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
     return exported, latest, rows, overall
 
 
-def upload_snapshot(token: str, overall: str) -> None:
+def upload_snapshot(token: str, overall: str, force: bool = False) -> None:
     """上传全量 db 快照为 Release 附件（以远端是否真的存在该附件为准）。"""
     tag = f"v{overall}"
     fname = f"dalian_market_price_{overall}.db"
@@ -199,8 +199,8 @@ def upload_snapshot(token: str, overall: str) -> None:
             release = None
     except Exception:  # noqa: BLE001
         release = None
-    if release and any(a.get("name") == fname
-                       for a in release.get("assets", [])):
+    if not force and release and any(a.get("name") == fname
+                                     for a in release.get("assets", [])):
         log(f"[skip] 快照 {fname} 已存在")
         return
     if release is None:
@@ -275,8 +275,8 @@ def main() -> int:
     if r.returncode != 0:
         fail("提交到 GitHub 失败（本地已导出，下次运行自动补推）")
 
-    # 2) Release 全量快照
-    upload_snapshot(token, overall)
+    # 2) Release 全量快照（--force-snapshot: 数据内容变化但日期未变时强制重传）
+    upload_snapshot(token, overall, force="--force-snapshot" in sys.argv)
     log(f"[done] 发布完成（最新 {overall}）")
     return 0
 
