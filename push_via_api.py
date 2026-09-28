@@ -23,8 +23,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = os.environ.get("DALIAN_PRICE_REPO", "Meayair/dalian-market-price")
 BRANCH = "main"
-PROXY = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
-    or "http://127.0.0.1:10808"
+# DALIAN_PRICE_DIRECT=1（或 HTTPS_PROXY="-"）时强制直连——本机代理未运行时使用
+_DIRECT = os.environ.get("DALIAN_PRICE_DIRECT", "").strip().lower() in ("1", "true", "yes") \
+    or os.environ.get("HTTPS_PROXY", "").strip() == "-"
+PROXY = None if _DIRECT else (
+    os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    or "http://127.0.0.1:10808")
 SKIP_DIRS = {".git", "dist", "__pycache__"}
 SKIP_FILES = {"_publish_log.txt"}
 

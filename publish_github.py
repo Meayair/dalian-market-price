@@ -29,8 +29,12 @@ LOG = HERE / "_publish_log.txt"
 # 仓库地址：Meayair/dalian-market-price（可用环境变量 DALIAN_PRICE_REPO 覆盖）
 REPO = os.environ.get("DALIAN_PRICE_REPO", "Meayair/dalian-market-price")
 # 大陆网络直连 GitHub 常失败：显式走本机代理（可用环境变量 HTTPS_PROXY 覆盖）
-PROXY = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
-    or "http://127.0.0.1:10808"
+# DALIAN_PRICE_DIRECT=1（或 HTTPS_PROXY="-"）时强制直连——本机代理未运行时使用
+_DIRECT = os.environ.get("DALIAN_PRICE_DIRECT", "").strip().lower() in ("1", "true", "yes") \
+    or os.environ.get("HTTPS_PROXY", "").strip() == "-"
+PROXY = None if _DIRECT else (
+    os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    or "http://127.0.0.1:10808")
 MARKETS = {"farm": "price_farm", "supermarket": "price_supermarket",
            "wholesale": "price_wholesale"}
 

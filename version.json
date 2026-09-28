@@ -1,18 +1,18 @@
 {
- "updated_at": "2026-09-24T23:11:43+08:00",
+ "updated_at": "2026-09-28T12:32:14+08:00",
  "latest": {
-  "farm": "2026-09-24",
-  "supermarket": "2026-09-24",
-  "wholesale": "2026-09-24"
+  "farm": "2026-09-28",
+  "supermarket": "2026-09-28",
+  "wholesale": "2026-09-28"
  },
  "rows": {
-  "farm": 6221,
-  "supermarket": 13787,
-  "wholesale": 3843
+  "farm": 6255,
+  "supermarket": 13819,
+  "wholesale": 3864
  },
  "snapshot": {
-  "db_file": "dalian_market_price_2026-09-24.db",
-  "url": "https://github.com/Meayair/dalian-market-price/releases/download/v2026-09-24/dalian_market_price_2026-09-24.db"
+  "db_file": "dalian_market_price_2026-09-28.db",
+  "url": "https://github.com/Meayair/dalian-market-price/releases/download/v2026-09-28/dalian_market_price_2026-09-28.db"
  },
  "dates": {
   "farm": [
@@ -198,7 +198,8 @@
    "2026-09-21",
    "2026-09-22",
    "2026-09-23",
-   "2026-09-24"
+   "2026-09-24",
+   "2026-09-28"
   ],
   "supermarket": [
    "2025-01-02",
@@ -631,7 +632,8 @@
    "2026-09-21",
    "2026-09-22",
    "2026-09-23",
-   "2026-09-24"
+   "2026-09-24",
+   "2026-09-28"
   ],
   "wholesale": [
    "2026-01-04",
@@ -816,7 +818,8 @@
    "2026-09-21",
    "2026-09-22",
    "2026-09-23",
-   "2026-09-24"
+   "2026-09-24",
+   "2026-09-28"
   ]
  }
 }
