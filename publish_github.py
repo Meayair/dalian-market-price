@@ -140,8 +140,10 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
                 f"prev_price, mom_pct FROM {t} WHERE report_date=? ORDER BY seq",
                 (d,),
             )
+            day_rows = cur.fetchall()
             # 当日版式（同一天所有行一致）：2025 旧版式日期无上期/环比，
             # 客户端需据此还原 format_version，避免增量重合并时丢失。
+            # 注意：必须先取完 day_rows 再执行下一条查询，否则游标被覆盖。
             cur.execute(
                 f"SELECT format_version FROM {t} WHERE report_date=? "
                 f"ORDER BY seq LIMIT 1", (d,))
@@ -154,7 +156,7 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
                     {"seq": r[0], "category": r[1], "commodity": r[2],
                      "spec": r[3], "unit": r[4], "avg": r[5], "prev": r[6],
                      "mom": r[7]}
-                    for r in cur.fetchall()
+                    for r in day_rows
                 ],
             }
             f.write_text(
