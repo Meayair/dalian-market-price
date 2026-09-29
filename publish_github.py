@@ -140,9 +140,16 @@ def export_all(cur: sqlite3.Cursor, force: bool) -> tuple[int, dict, dict, str]:
                 f"prev_price, mom_pct FROM {t} WHERE report_date=? ORDER BY seq",
                 (d,),
             )
+            # 当日版式（同一天所有行一致）：2025 旧版式日期无上期/环比，
+            # 客户端需据此还原 format_version，避免增量重合并时丢失。
+            cur.execute(
+                f"SELECT format_version FROM {t} WHERE report_date=? "
+                f"ORDER BY seq LIMIT 1", (d,))
+            fv = cur.fetchone()
             obj = {
                 "market": m,
                 "date": d,
+                "fmt": fv[0] if fv and fv[0] else None,
                 "rows": [
                     {"seq": r[0], "category": r[1], "commodity": r[2],
                      "spec": r[3], "unit": r[4], "avg": r[5], "prev": r[6],
